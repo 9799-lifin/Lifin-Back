@@ -1,0 +1,47 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ test/github-action ]
+  pull_request:
+    branches: [ test/github-action ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'corretto'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+        shell: bash
+
+      - name: Build and Test
+        run: ./gradlew build
+
+      - name: Register test results on Github pull request
+        uses: EnricoMi/publish-unit-test-result-action@v1
+        if: always()
+        with:
+          files: '**/build/test-results/test/TEST-*.xml'
+
+      - name: Test failed, Register check comment on failed lines
+        uses: mikepenz/action-junit-report@v3
+        if: always()
+        with:
+          report_paths: '**/build/test-results/test/TEST-*.xml'
+          token: ${{ secrets.BACKEND_GITHUB_ACCESS_TOKEN }}
+
+      - name: Cleanup gradle cache
+        if: ${{ always() }}
+        run: rm -rf $HOME/.gradle/caches
